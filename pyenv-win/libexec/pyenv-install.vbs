@@ -333,6 +333,7 @@ Sub main(arg)
     Dim optForce
     Dim optSkip
     Dim optList
+    Dim optListPython2
     Dim optQuiet
     Dim optAll
     Dim optWin32
@@ -346,6 +347,7 @@ Sub main(arg)
     optForce = False
     optSkip = False
     optList = False
+    optListPython2 = False
     optQuiet = False
     optAll = False
     optWin32 = False
@@ -353,6 +355,7 @@ Sub main(arg)
     optArm64 = False
     optDev = False
     optReg = False
+    optClear = False
     Set installVersions = CreateObject("Scripting.Dictionary")
 
     For idx = 0 To arg.Count - 1
@@ -360,6 +363,7 @@ Sub main(arg)
             Case "--help"           ShowHelp
             Case "-l"               optList = True
             Case "--list"           optList = True
+            Case "--list-python2"   optListPython2 = True
             Case "-f"               optForce = True
             Case "--force"          optForce = True
             Case "-s"               optSkip = True
@@ -413,8 +417,12 @@ Sub main(arg)
     End If
 
     If optList Then
+        Dim isPython2
         For Each version In versions.Keys
-            WScript.Echo version
+            isPython2 = Left(version, 2) = "2."
+            If isPython2 = optListPython2 Then
+                WScript.Echo version
+            End If
         Next
         Exit Sub
     ElseIf optClear Then
