@@ -286,7 +286,7 @@ Sub extract(params, register)
 
     Dim exitCode
     Dim file
-    If params(LV_MSI) Then
+    If params(LV_Ext) = "msi" Then
         exitCode = objws.Run("msiexec /quiet /a "& qInstallFile &" TargetDir="& qInstallPath, 9, True)
         If exitCode = 0 Then
             ' Remove duplicate .msi files from install path.
@@ -335,8 +335,9 @@ Sub main(arg)
     Dim optList
     Dim optQuiet
     Dim optAll
-    Dim opt32
-    Dim opt64
+    Dim optWin32
+    Dim optAmd64
+    Dim optArm64
     Dim optDev
     Dim optReg
     Dim optClear
@@ -347,8 +348,9 @@ Sub main(arg)
     optList = False
     optQuiet = False
     optAll = False
-    opt32 = False
-    opt64 = False
+    optWin32 = False
+    optAmd64 = False
+    optArm64 = False
     optDev = False
     optReg = False
     Set installVersions = CreateObject("Scripting.Dictionary")
@@ -364,29 +366,33 @@ Sub main(arg)
             Case "--skip-existing"  optSkip = True
             Case "-q"               optQuiet = True
             Case "--quiet"          optQuiet = True
-            Case "-a"               optAll = True
             Case "--all"            optAll = True
             Case "-c"               optClear = True
             Case "--clear"          optClear = True
-            Case "--32only"         opt32 = True
-            Case "--64only"         opt64 = True
+            Case "--win32"          optWin32 = True
+            Case "--amd64"          optAmd64 = True
+            Case "--arm64"          optArm64 = True
             Case "--dev"            optDev = True
             Case "-r"               optReg = True
             Case "--register"       optReg = True
             Case Else
-                installVersions.Item(Check32Bit(arg(idx))) = Empty
+                installVersions.Item(arg(idx)) = Empty
         End Select
     Next
-    If Is32Bit Then
-        opt32 = False
-        opt64 = False
-    End If    
-    If opt32 And opt64 Then
-        WScript.Echo "pyenv-install: only --32only or --64only may be specified, not both."
-        WScript.Quit 1
+
+    If HostIsWin32 Then
+        ' Win32 host has no choice :)
+        optWin32 = True
+        optAmd64 = False
+        optArm64 = False
+    ElseIf Not (optWin32 Or optAmd64 Or optArm64) Then
+        optWin32 = HostIsWin32
+        optAmd64 = HostIsAmd64
+        optArm64 = HostIsArm64
     End If
+
     If optReg Then
-        If opt32 Then
+        If optWin32 Then
             WScript.Echo "pyenv-install: --register not supported for 32 bits."
             WScript.Quit 1
         End If
@@ -437,21 +443,15 @@ Sub main(arg)
     End If
 
     If optAll Then
-        ' Add all versions, but only 32-bit versions for 32-bit platforms.
-        ' --32only/--64only is disabled on 32-bit platforms.
         installVersions.RemoveAll
         For Each version In versions.Keys
-            version = Check32Bit(version)
             If versions.Exists(version) Then
-                If opt64 Then
-                    If versions(version)(LV_x64) Then _
-                        installVersions(version) = Empty
-                ElseIf opt32 Then
-                    If Not versions(version)(LV_x64) Then _
-                        installVersions(version) = Empty
-                Else
+                If optWin32 And versions(version)(LV_Target) = "win32" Then _
                     installVersions(version) = Empty
-                End If
+                If optAmd64 And versions(version)(LV_Target) = "amd64" Then _
+                    installVersions(version) = Empty
+                If optArm64 And versions(version)(LV_Target) = "arm64" Then _
+                    installVersions(version) = Empty
             End If
         Next
     Else
@@ -463,7 +463,7 @@ Sub main(arg)
                 installVersions.Item(ary(0)) = Empty
             Else
                 ShowHelp
-            End If    
+            End If
         End If
     End If
 
@@ -489,9 +489,10 @@ Sub main(arg)
                 verDef(LV_Code), _
                 verDef(LV_FileName), _
                 verDef(LV_URL), _
-                verDef(LV_x64), _
+                verDef(LV_Embed), _
+                verDef(LV_Target), _
                 verDef(LV_Web), _
-                verDef(LV_MSI), _
+                verDef(LV_Ext), _
                 verDef(LV_ZipRootDir), _
                 strDirVers &"\"& verDef(LV_Code), _
                 strDirCache &"\"& verDef(LV_FileName), _

@@ -158,3 +158,12 @@ class Amd64(Arch):
         self = super().__new__(cls, content)
         self.version = ver
         return self
+
+
+class Arm64(Arch):
+    def __new__(cls, content):
+        ver = content
+        content = content + '-arm64'
+        self = super().__new__(cls, content)
+        self.version = ver
+        return self

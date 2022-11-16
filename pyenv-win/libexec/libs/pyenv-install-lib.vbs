@@ -16,18 +16,20 @@ Const VRX_Minor = 1
 Const VRX_Patch = 2
 Const VRX_Release = 3
 Const VRX_RelNumber = 4
-Const VRX_x64 = 5
-Const VRX_Web = 6
-Const VRX_Ext = 7
+Const VRX_Embed = 5
+Const VRX_Target = 6
+Const VRX_Web = 7
+Const VRX_Ext = 8
 
 ' Version definition array from LoadVersionsXML.
 Const LV_Code = 0
 Const LV_FileName = 1
 Const LV_URL = 2
-Const LV_x64 = 3
-Const LV_Web = 4
-Const LV_MSI = 5
-Const LV_ZipRootDir = 6
+Const LV_Embed = 3
+Const LV_Target = 4
+Const LV_Web = 5
+Const LV_Ext = 6
+Const LV_ZipRootDir = 7
 
 ' Installation parameters used for clear/extract, extension of LV.
 Const IP_InstallPath = 7
@@ -45,35 +47,39 @@ With regexVer
     .IgnoreCase = True
 End With
 With regexFile
-    .Pattern = "^python-(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:([a-z]+)(\d*))?([\.-]amd64)?(-webinstall)?\.(exe|msi)$"
+    .Pattern = "^python-(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:([a-z]+)(\d*))?(-embed)?(?:-(amd64|arm64|win32))?(-webinstall)?\.(exe|msi|zip)$"
     .Global = True
     .IgnoreCase = True
 End With
 
-' Adding -win32 as a post fix for x86 Arch
-Function JoinWin32String(pieces)
-    ' WScript.echo "kkotari: pyenv-install-lib.vbs JoinWin32String..!"
-    JoinWin32String = ""
-    If Len(pieces(VRX_Major))     Then JoinWin32String = JoinWin32String & pieces(VRX_Major)
-    If Len(pieces(VRX_Minor))     Then JoinWin32String = JoinWin32String &"."& pieces(VRX_Minor)
-    If Len(pieces(VRX_Patch))     Then JoinWin32String = JoinWin32String &"."& pieces(VRX_Patch)
-    If Len(pieces(VRX_Release))   Then JoinWin32String = JoinWin32String & pieces(VRX_Release)
-    If Len(pieces(VRX_RelNumber)) Then JoinWin32String = JoinWin32String & pieces(VRX_RelNumber)
-    If Len(pieces(VRX_x64)) = 0   Then JoinWin32String = JoinWin32String & "-win32"
+' Normal code name
+'   Fix missing "-win32", e.g. python-3.11.0.exe python-3.11.0-webinstall.exe
+Function JoinCodeString(pieces)
+    ' WScript.echo "kkotari: pyenv-install-lib.vbs JoinCodeString..!"
+    JoinCodeString = ""
+    If Len(pieces(VRX_Major))       Then JoinCodeString = JoinCodeString & pieces(VRX_Major)
+    If Len(pieces(VRX_Minor))       Then JoinCodeString = JoinCodeString &"."& pieces(VRX_Minor)
+    If Len(pieces(VRX_Patch))       Then JoinCodeString = JoinCodeString &"."& pieces(VRX_Patch)
+    If Len(pieces(VRX_Release))     Then JoinCodeString = JoinCodeString & pieces(VRX_Release)
+    If Len(pieces(VRX_RelNumber))   Then JoinCodeString = JoinCodeString & pieces(VRX_RelNumber)
+    If Len(pieces(VRX_Embed))       Then JoinCodeString = JoinCodeString &"-"& pieces(VRX_Embed)
+    If Len(pieces(VRX_Target))      Then JoinCodeString = JoinCodeString &"-"& pieces(VRX_Target)
+    If Len(pieces(VRX_Target)) = 0  Then JoinCodeString = JoinCodeString &"-win32"
 End Function
 
-' For x64 Arch
-Function JoinInstallString(pieces)
-    ' WScript.echo "kkotari: pyenv-install-lib.vbs JoinInstallString..!"
-    JoinInstallString = ""
-    If Len(pieces(VRX_Major))     Then JoinInstallString = JoinInstallString & pieces(VRX_Major)
-    If Len(pieces(VRX_Minor))     Then JoinInstallString = JoinInstallString &"."& pieces(VRX_Minor)
-    If Len(pieces(VRX_Patch))     Then JoinInstallString = JoinInstallString &"."& pieces(VRX_Patch)
-    If Len(pieces(VRX_Release))   Then JoinInstallString = JoinInstallString & pieces(VRX_Release)
-    If Len(pieces(VRX_RelNumber)) Then JoinInstallString = JoinInstallString & pieces(VRX_RelNumber)
-    If Len(pieces(VRX_x64))       Then JoinInstallString = JoinInstallString & pieces(VRX_x64)
-    If Len(pieces(VRX_Web))       Then JoinInstallString = JoinInstallString & pieces(VRX_Web)
-    If Len(pieces(VRX_Ext))       Then JoinInstallString = JoinInstallString &"."& pieces(VRX_Ext)
+' Normal file name
+Function JoinFileNameString(pieces)
+    ' WScript.echo "kkotari: pyenv-install-lib.vbs JoinFileNameString..!"
+    JoinFileNameString = "python-"
+    If Len(pieces(VRX_Major))       Then JoinFileNameString = JoinFileNameString & pieces(VRX_Major)
+    If Len(pieces(VRX_Minor))       Then JoinFileNameString = JoinFileNameString &"."& pieces(VRX_Minor)
+    If Len(pieces(VRX_Patch))       Then JoinFileNameString = JoinFileNameString &"."& pieces(VRX_Patch)
+    If Len(pieces(VRX_Release))     Then JoinFileNameString = JoinFileNameString & pieces(VRX_Release)
+    If Len(pieces(VRX_RelNumber))   Then JoinFileNameString = JoinFileNameString & pieces(VRX_RelNumber)
+    If Len(pieces(VRX_Embed))       Then JoinFileNameString = JoinFileNameString & pieces(VRX_Embed)
+    If Len(pieces(VRX_Target))      Then JoinFileNameString = JoinFileNameString & pieces(VRX_Target)
+    If Len(pieces(VRX_Web))         Then JoinFileNameString = JoinFileNameString & pieces(VRX_Web)
+    If Len(pieces(VRX_Ext))         Then JoinFileNameString = JoinFileNameString &"."& pieces(VRX_Ext)
 End Function
 
 ' Download exe file
@@ -134,7 +140,10 @@ strDBSchema = _
               "<xs:element name=""zipRootDir"" type=""xs:string"" minOccurs=""0"" maxOccurs=""1""/>"& _
             "</xs:sequence>"& _
             "<xs:attribute name=""x64"" type=""xs:boolean"" default=""false""/>"& _
+            "<xs:attribute name=""embed"" type=""xs:boolean"" default=""false""/>"& _
+            "<xs:attribute name=""target"" type=""xs:string""/>"& _
             "<xs:attribute name=""webInstall"" type=""xs:boolean"" default=""false""/>"& _
+            "<xs:attribute name=""ext"" type=""xs:string""/>"& _
             "<xs:attribute name=""msi"" type=""xs:boolean"" default=""true""/>"& _
           "</xs:complexType>"& _
         "</xs:element>"& _
@@ -171,6 +180,7 @@ Function LoadVersionsXML(xmlPath)
 
     With schemaError
         If .errorCode <> 0 Then
+            WScript.Echo "Parsing "& xmlPath
             WScript.Echo "Validation error in DB cache(0x"& Hex(.errorCode) & _
             ") on line "& .line &", pos "& .linepos &":"& vbCrLf & .reason
             WScript.Quit 1
@@ -193,9 +203,10 @@ Function LoadVersionsXML(xmlPath)
             code, _
             version.getElementsByTagName("file")(0).text, _
             version.getElementsByTagName("URL")(0).text, _
-            CBool(version.getAttribute("x64")), _
+            CBool(version.getAttribute("embed")), _
+            version.getAttribute("target"), _
             CBool(version.getAttribute("webInstall")), _
-            CBool(version.getAttribute("msi")), _
+            version.getAttribute("ext"), _
             zipRootDir _
         )
     Next
@@ -228,15 +239,20 @@ Sub SaveVersionsXML(xmlPath, versArray)
     Dim versRow
     Dim versElem
     For Each versRow In versArray
+        If Len(versRow(SFV_Version)(VRX_Target)) = 0 Then
+            versRow(SFV_Version)(VRX_Target) = "win32"
+        End If
+
         Set versElem = doc.createElement("version")
         doc.documentElement.appendChild versElem
 
         With versElem
-            .setAttribute "x64",        LocaleIndependantCStr(CBool(Len(versRow(SFV_Version)(VRX_x64))))
+            .setAttribute "embed",      LocaleIndependantCStr(CBool(Len(versRow(SFV_Version)(VRX_Embed))))
+            .setAttribute "target",     LCase(versRow(SFV_Version)(VRX_Target))
             .setAttribute "webInstall", LocaleIndependantCStr(CBool(Len(versRow(SFV_Version)(VRX_Web))))
-            .setAttribute "msi",        LocaleIndependantCStr(LCase(versRow(SFV_Version)(VRX_Ext)) = "msi")
+            .setAttribute "ext",        LCase(versRow(SFV_Version)(VRX_Ext))
         End With
-        AppendElement doc, versElem, "code", JoinWin32String(versRow(SFV_Version))
+        AppendElement doc, versElem, "code", JoinCodeString(versRow(SFV_Version))
         AppendElement doc, versElem, "file", versRow(0)
         AppendElement doc, versElem, "URL", versRow(1)
     Next

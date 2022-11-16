@@ -172,9 +172,15 @@ Function SymanticCompare(ver1, ver2)
     SymanticCompare = comp1 < comp2
     If comp1 <> comp2 Then Exit Function
 
-    ' x64
-    comp1 = ver1(VRX_x64)
-    comp2 = ver2(VRX_x64)
+    ' embeded or not
+    comp1 = ver1(VRX_Embed)
+    comp2 = ver2(VRX_Embed)
+    SymanticCompare = comp1 < comp2
+    If comp1 <> comp2 Then Exit Function
+
+    ' target: amd64 arm64 win32
+    comp1 = ver1(VRX_Target)
+    comp2 = ver2(VRX_Target)
     SymanticCompare = comp1 < comp2
     If comp1 <> comp2 Then Exit Function
 
@@ -184,7 +190,7 @@ Function SymanticCompare(ver1, ver2)
     SymanticCompare = comp1 < comp2
     If comp1 <> comp2 Then Exit Function
 
-    ' ext
+    ' ext: exe msi
     comp1 = ver1(VRX_Ext)
     comp2 = ver2(VRX_Ext)
     SymanticCompare = comp1 < comp2
@@ -314,7 +320,8 @@ Sub main(arg)
                 versPieces(VRX_Patch), _
                 versPieces(VRX_Release), _
                 versPieces(VRX_RelNumber), _
-                versPieces(VRX_x64), _
+                versPieces(VRX_Embed), _
+                versPieces(VRX_Target), _
                 Empty, _
                 versPieces(VRX_Ext) _
             ))

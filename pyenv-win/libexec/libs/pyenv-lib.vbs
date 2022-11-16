@@ -383,19 +383,39 @@ Sub Rehash()
     Next
 End Sub
 
-' SYSTEM:PROCESSOR_ARCHITECTURE = AMD64 on 64-bit computers. (even when using 32-bit cmd.exe)
-Function Is32Bit()
-    ' WScript.echo "kkotari: pyenv-lib.vbs is32bit..!"
+' env var SYSTEM:PROCESSOR_ARCHITECTURE (even access from Wow64 process)
+'   = X86 AMD64 ARM64
+Function HostArch()
+    ' WScript.echo "kkotari: pyenv-lib.vbs HostArch..!"
     Dim arch
     arch = objws.Environment("Process")("PYENV_FORCE_ARCH")
     If arch = "" Then arch = objws.Environment("System")("PROCESSOR_ARCHITECTURE")
-    Is32Bit = (UCase(arch) = "X86")
+    HostArch = UCase(arch)
+End Function
+Function HostIsWin32()
+    ' WScript.echo "kkotari: pyenv-lib.vbs HostIsWin32..!"
+    HostIsWin32 = (HostArch = "X86")
+End Function
+Function HostIsAmd64()
+    ' WScript.echo "kkotari: pyenv-lib.vbs HostIsAmd64..!"
+    HostIsAmd64 = (HostArch = "AMD64")
+End Function
+Function HostIsArm64()
+    ' WScript.echo "kkotari: pyenv-lib.vbs HostIsArm64..!"
+    HostIsArm64 = (HostArch = "ARM64")
+End Function
+Function HostTarget()
+    Dim target
+    If HostIsWin32 Then target = "win32"
+    If HostIsAmd64 Then target = "amd64"
+    If HostIsArm64 Then target = "arm64"
+    HostTarget = LCase(target)
 End Function
 
 ' If on a 32bit computer, default to -win32 versions.
 Function Check32Bit(version)
     ' WScript.echo "kkotari: pyenv-lib.vbs check32bit..!"
-    If Is32Bit And Right(LCase(version), 6) <> "-win32" Then _
+    If HostIsWin32 And Right(LCase(version), 6) <> "-win32" Then _
         version = version & "-win32"
     Check32Bit = version
 End Function
