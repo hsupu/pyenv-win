@@ -109,15 +109,18 @@ Function ScanForVersions(URL, optIgnore, ByRef pageCount)
     Dim link
     Dim fileName
     Dim matches
+    Dim match
     Dim major, minor, patch, rel
     For Each link In objHTML.links
         fileName = Trim(link.innerText)
         Set matches = regexFile.Execute(fileName)
         If matches.Count = 1 Then
+            ' WScript.Echo "FileName " &fileName
+            match = CollectionToArray(matches(0).SubMatches)
             ' Save as a dictionary entry with Key/Value as:
             '  -Key: [filename]
             '  -Value: Array([filename], [url], Array([regex submatches]))
-            ScanForVersions.Add fileName, Array(fileName, link.href, CollectionToArray(matches(0).SubMatches))
+            ScanForVersions.Add fileName, Array(fileName, link.href, match)
         End If
     Next
 End Function
@@ -243,16 +246,30 @@ Sub SymanticQuickSort(arr, arrMin, arrMax)
 End Sub
 
 Sub main(arg)
+    Dim idx
     Dim optIgnore
-    optIgnore = False
+    Dim optPython2
+    Dim optPython3
 
-    If arg.Count >= 1 then
-        If arg(0) = "--help" then
-            ShowHelp
-        ElseIf arg(0) = "--ignore" Then
-            optIgnore = True
-        End If
-    End If
+    optIgnore = False
+    optPython2 = False
+    optPython3 = ""
+
+    For idx = 0 To arg.Count - 1
+        Select Case arg(idx)
+            Case "--help"
+                ShowHelp
+            Case "--ignore"
+                optIgnore = True
+            Case "--python2"
+                optPython2 = True
+            Case "--python3"
+                idx = idx + 1
+                optPython3 = arg(idx)
+            Case Else
+                WScript.Echo "Unknown option "& arg(idx)
+        End Select
+    Next
 
     Dim objHTML
     Dim pageCount
@@ -290,30 +307,61 @@ Sub main(arg)
     Dim link
     Dim version
     Dim matches
+    Dim match
     Dim installers1
     Set installers1 = CreateObject("Scripting.Dictionary")
     For Each link In objHTML.links
+    Do
         version = objfs.GetFileName(link.pathname)
         Set matches = regexVer.Execute(version)
-        If matches.Count = 1 Then _
+        If matches.Count = 1 Then
+            ' WScript.Echo "Link " &link.href
+            match = CollectionToArray(matches(0).SubMatches)
+
+            If optPython2 Then
+                ' Ignore Python < 2.4, Wise Installer's command line is unusable.
+                If match(0) = "2" And CLng(match(1)) < CLng(4) Then
+                    WScript.Echo "Skip " &version
+                    Exit Do
+                End If
+            ElseIf match(0) = "2" Then
+                WScript.Echo "Skip " &version
+                Exit Do
+            End If
+
+            If match(0) = "3" And optPython3 <> "" Then
+                If CLng(match(1)) < CLng(optPython3) Then
+                    WScript.Echo "Skip " &version
+                    Exit Do
+                End If
+            End If
+
+            WScript.Echo "Add " &version
             UpdateDictionary installers1, ScanForVersions(link.href, optIgnore, pageCount)
+        End If
+    Loop While False ' Workaround for "Continue"
     Next
 
-    ' Now remove any duplicate versions that have the web installer (it's prefered)
     Dim minVers
     Dim fileName, fileNonWeb
     Dim versPieces
     Dim installers2
     Set installers2 = CopyDictionary(installers1) ' Use a copy because "For Each" and .Remove don't play nice together.
-    minVers = Array("2", "4", "", "", "", "", "", "")
+
     For Each fileName In installers1.Keys()
-        ' Array([filename], [url], Array([major], [minor], [path], [rel], [rel_num], [x64], [webinstall], [ext]))
+    Do
+        ' Array(
+        '     [filename],
+        '     [url],
+        '     Array(
+        '         [major], [minor], [path], [rel], [rel_num],
+        '         [embed], [target], [webinstall], [ext]
+        '     )
+        ' )
         versPieces = installers1(fileName)(SFV_Version)
 
-        ' Ignore versions <2.4, Wise Installer's command line is unusable.
-        If SymanticCompare(versPieces, minVers) Then
-            installers2.Remove fileName
-        ElseIf Len(versPieces(VRX_Web)) Then
+        ' Remove any duplicate versions that have the web installer (it's prefered)
+        If Len(versPieces(VRX_Web)) Then
             fileNonWeb = "python-"& JoinInstallString(Array( _
                 versPieces(VRX_Major), _
                 versPieces(VRX_Minor), _
@@ -325,9 +373,12 @@ Sub main(arg)
                 Empty, _
                 versPieces(VRX_Ext) _
             ))
-            If installers2.Exists(fileNonWeb) Then _
+            If installers2.Exists(fileNonWeb) Then
                 installers2.Remove fileName
+                Exit Do
+            End If
         End If
+    Loop While False ' Workaround for "Continue"
     Next
 
     ' Now sort by semantic version and save
