@@ -250,10 +250,16 @@ Sub main(arg)
     Dim optIgnore
     Dim optPython2
     Dim optPython3
+    Dim optEmbed
+    Dim optTargets
+    Dim optWebInstall
 
     optIgnore = False
     optPython2 = False
     optPython3 = ""
+    optEmbed = False
+    optTargets = Array(HostTarget)
+    optWebInstall = True
 
     For idx = 0 To arg.Count - 1
         Select Case arg(idx)
@@ -266,8 +272,16 @@ Sub main(arg)
             Case "--python3"
                 idx = idx + 1
                 optPython3 = arg(idx)
+            Case "--embed"
+                optEmbed = True
+            Case "--target"
+                idx = idx + 1
+                optTargets = Split(arg(idx), ",")
+            Case "--no-web-install"
+                optWebInstall = False
             Case Else
                 WScript.Echo "Unknown option "& arg(idx)
+                WScript.Quit 1
         End Select
     Next
 
@@ -342,10 +356,12 @@ Sub main(arg)
     Loop While False ' Workaround for "Continue"
     Next
 
-    Dim minVers
-    Dim fileName, fileNonWeb
+    Dim fileName
     Dim versPieces
     Dim installers2
+    Dim target
+    Dim targetMatch
+    Dim fileAlternative
     Set installers2 = CopyDictionary(installers1) ' Use a copy because "For Each" and .Remove don't play nice together.
 
     For Each fileName In installers1.Keys()
@@ -360,9 +376,22 @@ Sub main(arg)
         ' )
         versPieces = installers1(fileName)(SFV_Version)
 
+        targetMatch = False
+        For Each target In optTargets
+            If target = versPieces(VRX_Target) Then
+                targetMatch = True
+                Exit For
+            End If
+        Next
+        If Not targetMatch Then
+            WScript.Echo "Ignore " &fileName
+            installers2.Remove fileName
+            Exit Do
+        End If
+
         ' Remove any duplicate versions that have the web installer (it's prefered)
         If Len(versPieces(VRX_Web)) Then
-            fileNonWeb = "python-"& JoinInstallString(Array( _
+            fileAlternative = JoinFileNameString(Array( _
                 versPieces(VRX_Major), _
                 versPieces(VRX_Minor), _
                 versPieces(VRX_Patch), _
@@ -373,8 +402,14 @@ Sub main(arg)
                 Empty, _
                 versPieces(VRX_Ext) _
             ))
-            If installers2.Exists(fileNonWeb) Then
-                installers2.Remove fileName
+            If installers2.Exists(fileAlternative) Then
+                If optWebInstall Then
+                    WScript.Echo "Ignore " &fileName
+                    installers2.Remove fileName
+                Else
+                    WScript.Echo "Ignore " &fileAlternative
+                    installers2.Remove fileAlternative
+                End If
                 Exit Do
             End If
         End If
