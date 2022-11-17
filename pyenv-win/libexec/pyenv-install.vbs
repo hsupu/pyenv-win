@@ -332,13 +332,7 @@ Sub main(arg)
     Dim idx
     Dim optForce
     Dim optSkip
-    Dim optList
-    Dim optListPython2
     Dim optQuiet
-    Dim optAll
-    Dim optWin32
-    Dim optAmd64
-    Dim optArm64
     Dim optDev
     Dim optReg
     Dim optClear
@@ -346,13 +340,7 @@ Sub main(arg)
 
     optForce = False
     optSkip = False
-    optList = False
-    optListPython2 = False
     optQuiet = False
-    optAll = False
-    optWin32 = False
-    optAmd64 = False
-    optArm64 = False
     optDev = False
     optReg = False
     optClear = False
@@ -361,21 +349,14 @@ Sub main(arg)
     For idx = 0 To arg.Count - 1
         Select Case arg(idx)
             Case "--help"           ShowHelp
-            Case "-l"               optList = True
-            Case "--list"           optList = True
-            Case "--list-python2"   optListPython2 = True
             Case "-f"               optForce = True
             Case "--force"          optForce = True
             Case "-s"               optSkip = True
             Case "--skip-existing"  optSkip = True
             Case "-q"               optQuiet = True
             Case "--quiet"          optQuiet = True
-            Case "--all"            optAll = True
             Case "-c"               optClear = True
             Case "--clear"          optClear = True
-            Case "--win32"          optWin32 = True
-            Case "--amd64"          optAmd64 = True
-            Case "--arm64"          optArm64 = True
             Case "--dev"            optDev = True
             Case "-r"               optReg = True
             Case "--register"       optReg = True
@@ -384,26 +365,13 @@ Sub main(arg)
         End Select
     Next
 
-    If HostIsWin32 Then
-        ' Win32 host has no choice :)
-        optWin32 = True
-        optAmd64 = False
-        optArm64 = False
-    ElseIf Not (optWin32 Or optAmd64 Or optArm64) Then
-        optWin32 = HostIsWin32
-        optAmd64 = HostIsAmd64
-        optArm64 = HostIsArm64
+    If installVersions.Count = 0 Then
+        ShowHelp
     End If
 
-    If optReg Then
-        If optWin32 Then
-            WScript.Echo "pyenv-install: --register not supported for 32 bits."
-            WScript.Quit 1
-        End If
-        If optAll Then
-            WScript.Echo "pyenv-install: --register not supported for all versions."
-            WScript.Quit 1
-        End If
+    If optReg And HostIsWin32 Then
+        WScript.Echo "pyenv-install: --register not supported for 32 bits."
+        WScript.Quit 1
     End If
 
     Dim versions
@@ -416,16 +384,7 @@ Sub main(arg)
         WScript.Quit 1
     End If
 
-    If optList Then
-        Dim isPython2
-        For Each version In versions.Keys
-            isPython2 = Left(version, 2) = "2."
-            If isPython2 = optListPython2 Then
-                WScript.Echo version
-            End If
-        Next
-        Exit Sub
-    ElseIf optClear Then
+    If optClear Then
         Dim objCache
         Dim delError
         delError = 0
@@ -448,31 +407,6 @@ Sub main(arg)
             End If
         Next
         WScript.Quit delError
-    End If
-
-    If optAll Then
-        installVersions.RemoveAll
-        For Each version In versions.Keys
-            If versions.Exists(version) Then
-                If optWin32 And versions(version)(LV_Target) = "win32" Then _
-                    installVersions(version) = Empty
-                If optAmd64 And versions(version)(LV_Target) = "amd64" Then _
-                    installVersions(version) = Empty
-                If optArm64 And versions(version)(LV_Target) = "arm64" Then _
-                    installVersions(version) = Empty
-            End If
-        Next
-    Else
-        If installVersions.Count = 0 Then
-            Dim ary
-            ' TODO Should we handle many versions here?
-            ary = GetCurrentVersionNoError()
-            If Not IsNull(ary) Then
-                installVersions.Item(ary(0)) = Empty
-            Else
-                ShowHelp
-            End If
-        End If
     End If
 
     ' Pre-check if all versions to install exist.
